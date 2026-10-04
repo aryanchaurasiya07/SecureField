@@ -1,6 +1,23 @@
 import React, { useState, useRef } from 'react';
 import { toast } from '../utils/toast';
 
+function Field({ label, placeholder, value, onChange, required }) {
+  return (
+    <div>
+      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+        {label} {required && <span className="text-red-400">*</span>}
+      </label>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="mt-1.5 w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  );
+}
+
 export default function Step3_VoiceNotes({ testData, update, onNext }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState(testData.voiceNote || '');
@@ -51,20 +68,6 @@ export default function Step3_VoiceNotes({ testData, update, onNext }) {
     onNext();
   };
 
-  const Field = ({ label, placeholder, value, onChange, required }) => (
-    <div>
-      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-        {label} {required && <span className="text-red-400">*</span>}
-      </label>
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="mt-1.5 w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-    </div>
-  );
 
   return (
     <div className="space-y-5">

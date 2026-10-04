@@ -11,23 +11,45 @@ export default function LoginScreen({ onLogin }) {
   const streamRef = useRef(null);
 
   const startCamera = async () => {
+    setError('');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
       streamRef.current = stream;
-      videoRef.current.srcObject = stream;
       setShowCamera(true);
-    } catch { setError('Camera access denied.'); }
+      setError('');
+    } catch {
+      setError('Camera access denied or no camera found. You can upload a photo below.');
+    }
   };
 
   const captureSelfie = () => {
+    const video = videoRef.current;
+    if (!video) return;
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0);
     setSelfie(canvas.toDataURL('image/jpeg', 0.8));
     streamRef.current?.getTracks().forEach(t => t.stop());
     setShowCamera(false);
   };
+
+  const handleSelfieUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setSelfie(ev.target.result);
+      setShowCamera(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
 
   const handleLogin = () => {
     if (!name.trim() || !badgeId.trim()) { setError('Name and Badge ID are required.'); return; }
@@ -91,15 +113,34 @@ export default function LoginScreen({ onLogin }) {
                 </div>
               ) : showCamera ? (
                 <div className="mt-1.5 relative rounded-2xl overflow-hidden">
-                  <video ref={videoRef} autoPlay playsInline className="w-full h-36 object-cover bg-black" />
+                  <video
+                    ref={el => {
+                      videoRef.current = el;
+                      if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                        el.srcObject = streamRef.current;
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-36 object-cover bg-black"
+                  />
                   <button onClick={captureSelfie} className="absolute bottom-3 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full bg-white border-4 border-blue-500 shadow-lg" />
                 </div>
               ) : (
-                <button onClick={startCamera}
-                  className="mt-1.5 w-full rounded-2xl py-4 flex items-center justify-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50"
-                  style={{ background: '#f8fafc', border: '1.5px dashed #cbd5e1' }}>
-                  📷 Take Identity Photo
-                </button>
+                <div className="mt-1.5 flex gap-2">
+                  <button type="button" onClick={startCamera}
+                    className="flex-1 rounded-2xl py-3.5 flex items-center justify-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                    style={{ background: '#f8fafc', border: '1.5px dashed #cbd5e1' }}>
+                    📷 Take Photo
+                  </button>
+                  <label
+                    className="flex-1 rounded-2xl py-3.5 flex items-center justify-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 cursor-pointer text-center"
+                    style={{ background: '#f8fafc', border: '1.5px dashed #cbd5e1' }}>
+                    📁 Upload File
+                    <input type="file" accept="image/*" onChange={handleSelfieUpload} className="hidden" />
+                  </label>
+                </div>
               )}
             </div>
           </div>

@@ -75,25 +75,60 @@ export default function Step4_ColorCapture({ testData, update, onNext }) {
   const streamRef = useRef(null);
 
   const startCamera = async () => {
+    setError('');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Camera is not supported on this browser or requires HTTPS. You can upload an image file instead.');
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
       streamRef.current = stream;
-      videoRef.current.srcObject = stream;
       setMode('camera');
       setError('');
-    } catch {
-      setError('Camera access denied. Please allow camera permissions in your browser settings.');
+    } catch (err) {
+      console.error('Camera access error:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Camera permission denied in browser. Please check camera permission in the address bar lock icon, or upload an image file below.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError('No camera device detected. Please upload an image file below.');
+      } else {
+        setError(`Camera could not be opened (${err.message || err.name}). You can upload an image file below.`);
+      }
     }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const rawDataUrl = ev.target.result;
+      const kitName = REAGENT_KITS[testData.kitType]?.name || testData.kitType;
+      const watermarked = await watermarkImage(rawDataUrl, testData._operator || {}, kitName);
+      setImageDataUrl(watermarked);
+      setMode('preview');
+      toast('Photo loaded & watermarked', 'success');
+    };
+    reader.readAsDataURL(file);
   };
 
   const capturePhoto = async () => {
     const video = videoRef.current;
+    if (!video) return;
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
     canvas.getContext('2d').drawImage(video, 0, 0);
     const rawDataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
@@ -122,6 +157,13 @@ export default function Step4_ColorCapture({ testData, update, onNext }) {
     };
     img.src = imageDataUrl;
   };
+
+  useEffect(() => {
+    if (mode === 'camera' && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(e => console.warn('Video play warning:', e));
+    }
+  }, [mode]);
 
   useEffect(() => {
     return () => streamRef.current?.getTracks().forEach(t => t.stop());
@@ -180,9 +222,15 @@ export default function Step4_ColorCapture({ testData, update, onNext }) {
             </div>
           )}
 
-          <button onClick={startCamera} className="w-full py-4 rounded-xl font-bold text-lg bg-blue-600 hover:bg-blue-500 flex items-center justify-center gap-2 active:scale-95 transition-all">
-            📸 Open Camera
-          </button>
+          <div className="flex flex-col gap-2.5">
+            <button onClick={startCamera} className="w-full py-4 rounded-xl font-bold text-lg bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md">
+              📸 Open Camera
+            </button>
+            <label className="w-full py-3.5 rounded-xl font-semibold text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 text-center">
+              📁 Choose Photo / Upload File
+              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+            </label>
+          </div>
         </div>
       )}
 
@@ -190,7 +238,18 @@ export default function Step4_ColorCapture({ testData, update, onNext }) {
       {mode === 'camera' && (
         <div className="space-y-3">
           <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
-            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <video
+              ref={el => {
+                videoRef.current = el;
+                if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                  el.srcObject = streamRef.current;
+                }
+              }}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
             <div className="absolute inset-0 pointer-events-none">
               {/* Reference card zone */}
               <div className="absolute top-0 left-0 right-0 h-[25%] border-b-2 border-dashed border-indigo-400/80 bg-indigo-900/20 flex items-center justify-center">
@@ -212,6 +271,10 @@ export default function Step4_ColorCapture({ testData, update, onNext }) {
           <button onClick={capturePhoto} className="w-full py-4 rounded-xl font-bold text-lg bg-white text-slate-900 flex items-center justify-center gap-2 active:scale-95 transition-all">
             ⚪ Capture & Watermark Photo
           </button>
+          <label className="w-full py-2.5 rounded-xl text-center text-xs text-slate-400 hover:text-slate-200 border border-dashed border-slate-600 cursor-pointer block">
+            Switch to image file upload instead
+            <input type="file" accept="image/*" onChange={(e) => { streamRef.current?.getTracks().forEach(t => t.stop()); handleFileUpload(e); }} className="hidden" />
+          </label>
           <button onClick={() => { streamRef.current?.getTracks().forEach(t => t.stop()); setMode('guide'); }} className="w-full text-slate-400 text-sm py-2">
             ← Back
           </button>

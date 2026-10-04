@@ -18,18 +18,26 @@ export default function EvidenceGallery({ photos = [], onAddPhoto, onRemovePhoto
   const startCamera = async (type) => {
     setActiveType(type);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: false,
-      });
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
       streamRef.current = stream;
-      videoRef.current.srcObject = stream;
       setShowCamera(true);
     } catch {
       toast('Camera error — uploading file instead', 'warning');
       fileRef.current?.click();
     }
   };
+
 
   const capture = () => {
     const video = videoRef.current;
@@ -90,7 +98,18 @@ export default function EvidenceGallery({ photos = [], onAddPhoto, onRemovePhoto
               className="text-white text-lg font-bold"
             >✕</button>
           </div>
-          <video ref={videoRef} autoPlay playsInline className="w-full rounded-2xl flex-1 object-cover my-4" />
+          <video
+            ref={el => {
+              videoRef.current = el;
+              if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                el.srcObject = streamRef.current;
+              }
+            }}
+            autoPlay
+            playsInline
+            muted
+            className="w-full rounded-2xl flex-1 object-cover my-4 bg-black"
+          />
           <button
             onClick={capture}
             className="w-full py-4 rounded-2xl bg-white text-gray-900 font-bold text-lg active:scale-95"

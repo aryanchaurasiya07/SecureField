@@ -1,9 +1,13 @@
 import React from 'react';
 
-export default function Step1_Selfie({ operator, testData, update, onNext }) {
-  const Card = ({ children }) => (
+function Card({ children }) {
+  return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">{children}</div>
   );
+}
+
+export default function Step1_Selfie({ operator, testData, update, onNext }) {
+
 
   return (
     <div className="space-y-4 pb-6">
